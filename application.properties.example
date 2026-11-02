@@ -1,0 +1,12 @@
+# Copy these environment variable names into your OS / IntelliJ Run Configuration.
+# Do NOT commit real passwords to GitHub.
+STUDENT_DB_URL=jdbc:postgresql://localhost:5432/student_db
+STUDENT_DB_USERNAME=postgres
+STUDENT_DB_PASSWORD=YOUR_LOCAL_PASSWORD
+COURSE_DB_URL=jdbc:postgresql://localhost:5432/course_db
+COURSE_DB_USERNAME=postgres
+COURSE_DB_PASSWORD=YOUR_LOCAL_PASSWORD
+GRADE_DB_URL=jdbc:postgresql://localhost:5432/grade_db
+GRADE_DB_USERNAME=postgres
+GRADE_DB_PASSWORD=YOUR_LOCAL_PASSWORD
+SERVER_PORT=8080
