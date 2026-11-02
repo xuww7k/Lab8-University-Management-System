@@ -1,148 +1,150 @@
-# Lab 8 — University Management System
+# University Management System — Lab 8
 
-Java Spring Boot + Spring Data JPA + **three separate PostgreSQL databases** + REST + Postman.
+A REST API for managing university students, courses, and grades. The application is built with Java Spring Boot and stores data in three separate PostgreSQL databases.
 
-## 1. Что реализовано
+## Technology stack
 
-- `student_db` / `students`: CRUD, уникальный email.
-- `course_db` / `courses`: CRUD, уникальный courseCode.
-- `grade_db` / `grades`: CRUD, проверка существования studentId/courseId, score от 0 до 100, letterGrade.
-- `GET /api/students/{id}/transcript`: студент + предметы + оценки + средний балл из всех трёх баз.
-- `@RestControllerAdvice`: HTTP 400/404/409; недоступность БД при типовых ошибках соединения — 503.
-- Раздельные `DataSource`, `EntityManagerFactory`, `TransactionManager`, `@EnableJpaRepositories`.
-- Constructor injection, `@Transactional(transactionManager = "...")`, DTO, unit-тесты.
+- Java 17+ and Spring Boot 3.5
+- Spring Web, Spring Data JPA, Hibernate
+- PostgreSQL
+- Maven
+- Jakarta Bean Validation
+- JUnit 5 and Mockito
+- Postman for API testing
 
-По заданию Lab 8 нужен backend, **веб-интерфейс не требуется**. Проверяем через Postman.
+## Architecture
 
-## 2. Что установить на Windows
+The application follows the Controller → Service → Repository structure.
 
-1. JDK **17 или 21** (Spring Boot 3.5.16, проект компилируется для Java 17).
-2. IntelliJ IDEA, Maven (можно использовать встроенный Maven IntelliJ).
-3. PostgreSQL 15+ и pgAdmin 4.
-4. Postman.
+| Database | Table | Responsibility |
+|---|---|---|
+| `student_db` | `students` | Student profiles |
+| `course_db` | `courses` | Course catalog |
+| `grade_db` | `grades` | Student grades |
 
-## 3. Создать базы
+Each database has its own `DataSource`, `EntityManagerFactory`, and `TransactionManager`. JPA repositories are configured separately for each persistence unit.
 
-В pgAdmin войдите в сервер PostgreSQL. Создайте БД `student_db`, `course_db` и `grade_db`.
-Либо в Query Tool базы `postgres` выполните `sql/01-create-databases.sql` (если сервер
-или клиент запускает всё в одной транзакции, выполняйте три CREATE DATABASE отдельно).
+The transcript endpoint combines data from all three databases. Student and course references in the grades database are validated at the application level because they cannot use ordinary cross-database foreign keys.
 
-Hibernate настроен с `hibernate.hbm2ddl.auto=update` для **каждого** EntityManagerFactory:
-он создаёт таблицы при первом старте. Дополнительно приложены SQL схемы, если преподаватель
-просит показать SQL: `sql/02-...` на `student_db`, `sql/03-...` на `course_db`,
-`sql/04-...` на `grade_db`. При запуске SQL схем вручную убедитесь, что они выполнены
-**в соответствующей базе**, а не в `postgres`.
+## Features
 
-## 4. Установить параметры подключения БЕЗ паролей в GitHub
+- CRUD operations for students, courses, and grades
+- Unique student emails and course codes
+- Grade validation (0–100) and automatic letter-grade conversion
+- Student transcript with course details and average score
+- Structured API error responses using `@RestControllerAdvice`
 
-В IntelliJ: **Run → Edit Configurations → UniversityManagementApplication → Environment variables**.
-Установите (замените `YOUR_PASSWORD` локальным паролем PostgreSQL):
+Letter grades: A (90–100), B (80–89), C (70–79), D (60–69), F (0–59). The average is calculated from numeric scores, not as GPA or a credit-weighted result.
+
+## Local setup
+
+**Prerequisites:** JDK 17 or later, PostgreSQL, and Maven (or IntelliJ IDEA with Maven support).
+
+1. Create the PostgreSQL databases `student_db`, `course_db`, and `grade_db`. See `sql/01-create-databases.sql`.
+2. Configure the connection credentials as environment variables. The default PostgreSQL user is `postgres` and the port is `5432`.
+3. Run `UniversityManagementApplication` from IntelliJ IDEA, or use `mvn spring-boot:run`.
+4. The REST API is available at `http://localhost:8080`. Hibernate creates or updates the tables on application startup.
+
+Required environment variables (set their values locally, not in source control):
 
 ```text
-STUDENT_DB_PASSWORD=YOUR_PASSWORD;COURSE_DB_PASSWORD=YOUR_PASSWORD;GRADE_DB_PASSWORD=YOUR_PASSWORD
+STUDENT_DB_PASSWORD=<your PostgreSQL password>
+COURSE_DB_PASSWORD=<your PostgreSQL password>
+GRADE_DB_PASSWORD=<your PostgreSQL password>
 ```
 
-В Windows PowerShell можно запустить через `mvn spring-boot:run` после команд:
-```powershell
-$env:STUDENT_DB_PASSWORD = "YOUR_PASSWORD"
-$env:COURSE_DB_PASSWORD  = "YOUR_PASSWORD"
-$env:GRADE_DB_PASSWORD   = "YOUR_PASSWORD"
-mvn spring-boot:run
-```
+Optional overrides: `STUDENT_DB_URL`, `COURSE_DB_URL`, `GRADE_DB_URL`, the corresponding `*_DB_USERNAME` variables, and `SERVER_PORT`.
 
-По умолчанию все 3 базы на `localhost:5432`, пользователь `postgres`.
-Если другие URL/имена пользователей, задайте `STUDENT_DB_URL`, `COURSE_DB_URL`, `GRADE_DB_URL`
-и `STUDENT_DB_USERNAME`, `COURSE_DB_USERNAME`, `GRADE_DB_USERNAME`.
-Названия переменных также есть в `application.properties.example` (это образец, не secrets-файл).
+## REST API
 
-При старте сервер доступен по адресу `http://localhost:8080`.
-Если при открытии корневой страницы `/` получаете **404**, это нормально:
-проект предоставляет `/api/...`, а не главную HTML страницу.
-
-## 5. API (основные обязательные запросы)
-
-| HTTP | URL | Назначение |
+| Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/students` | Все студенты |
-| POST | `/api/students` | Создать студента |
-| PUT | `/api/students/{id}` | Изменить студента |
-| DELETE | `/api/students/{id}` | Удалить студента |
-| GET | `/api/courses` | Все курсы |
-| POST | `/api/courses` | Создать курс |
-| PUT | `/api/courses/{id}` | Изменить курс |
-| DELETE | `/api/courses/{id}` | Удалить курс |
-| POST | `/api/grades` | Добавить оценку |
-| GET | `/api/grades/student/{id}` | Оценки студента |
-| GET | `/api/students/{id}/transcript` | Общая ведомость из трёх баз |
+| GET | `/api/students` | List students |
+| GET | `/api/students/{id}` | Get student |
+| POST | `/api/students` | Create student |
+| PUT | `/api/students/{id}` | Update student |
+| DELETE | `/api/students/{id}` | Delete student |
+| GET | `/api/courses` | List courses |
+| GET | `/api/courses/{id}` | Get course |
+| POST | `/api/courses` | Create course |
+| PUT | `/api/courses/{id}` | Update course |
+| DELETE | `/api/courses/{id}` | Delete course |
+| GET | `/api/grades` | List grades |
+| POST | `/api/grades` | Assign grade |
+| GET | `/api/grades/student/{id}` | List grades for a student |
+| PUT | `/api/grades/{id}` | Update grade |
+| DELETE | `/api/grades/{id}` | Delete grade |
+| GET | `/api/students/{id}/transcript` | Student transcript |
 
-Дополнительно реализованы `GET /api/students/{id}`, `GET /api/courses/{id}`,
-`GET /api/grades`, `GET /api/grades/{id}`, `PUT /api/grades/{id}`, `DELETE /api/grades/{id}`.
+### Example: student transcript
 
-**POST /api/students**, Body → raw → JSON:
-```json
-{"firstName":"Aruzhan","lastName":"Sadykova","email":"aruzhan@example.com","major":"Computer Science","enrollmentYear":2024}
+```http
+GET /api/students/1/transcript
 ```
-**POST /api/courses**:
-```json
-{"courseName":"Spring Boot Development","courseCode":"CS301","credits":5,"instructor":"Dr. Kassen"}
-```
-**POST /api/grades** (подставьте реальные ID из POST ответов):
-```json
-{"studentId":1,"courseId":1,"score":95}
-```
-**GET /api/students/1/transcript** возвращает примерную структуру (для одной оценки):
+
+Sample response from local testing (selected fields):
+
 ```json
 {
-  "studentId":1,
-  "studentName":"Aruzhan Sadykova",
-  "major":"Computer Science",
-  "courses":[{"courseId":1,"courseName":"Spring Boot Development","courseCode":"CS301","credits":5,"score":95,"letterGrade":"A","gradedAt":"2026-11-03T00:00:00Z"}],
-  "averageScore":95.00
+  "studentId": 1,
+  "studentName": "Aruzhan Sadykova",
+  "major": "Computer Science",
+  "courses": [
+    {
+      "courseId": 1,
+      "courseName": "Spring Boot Development",
+      "courseCode": "CS301",
+      "credits": 6,
+      "score": 87,
+      "letterGrade": "B"
+    },
+    {
+      "courseId": 2,
+      "courseName": "Mathematics for CS",
+      "courseCode": "MATH101",
+      "credits": 4,
+      "score": 85,
+      "letterGrade": "B"
+    }
+  ],
+  "averageScore": 86.00
 }
 ```
-Это **пример формата**; реальные ID, время и значения зависят от ваших данных.
 
-## 6. Postman
+The actual endpoint also includes grading timestamps for individual courses.
 
-Откройте Postman → **Import → File → `postman/Lab8_University_Management.postman_collection.json`**.
-У коллекции переменная `baseUrl=http://localhost:8080`. Сначала выполняйте запросы в папке
-**01 Happy path** сверху вниз (на чистых базах). Для повторного прохождения сперва выполните
-**03 Cleanup (optional)** или поменяйте email и коды курсов. Скрипты POST автоматически сохраняют `studentId`, `courseId`, `course2Id`, `gradeId`, `grade2Id`
-для следующих запросов. Папка **02 Error checks** содержит запросы для 400, 404, 409.
-Для сдачи сделайте **свои реальные скриншоты** с работающего PostgreSQL+Postman и добавьте в `screenshots/`.
-В архиве есть инструкция `screenshots/README.md`, а не вымышленные скриншоты.
+## Testing
 
-## 7. Проверить код
+Import `postman/Lab8_University_Management.postman_collection.json` into Postman. The collection contains scenarios grouped as `01 Happy path`, `02 Error checks`, and `03 Cleanup (optional)`.
 
-В IntelliJ откройте папку через **Open** и дождитесь импорта Maven.
-Выберите JDK 17+; запустите главный класс `UniversityManagementApplication`.
-Для unit-тестов `mvn test` (тесты сервисов не требуют запущенного PostgreSQL).
+Local verification results:
 
-## 8. Обработка ошибок и особенности
+- Three PostgreSQL connections initialized successfully.
+- Transcript endpoint returned HTTP 200 and a calculated average of 86.00.
+- Error checks: 8 passed, 0 failed (HTTP 400, 404, and 409).
+- Happy path: 12 passed, 1 failed due to an existing student email (HTTP 409 instead of HTTP 201 on repeated creation). A clean test dataset is needed for a repeat run.
 
-- **400 Bad Request**: score 150; неверный email; отсутствие обязательного поля.
-- **404 Not Found**: студент/курс/оценка с таким ID отсутствует.
-- **409 Conflict**: дубликат email / courseCode / одна оценка на пару student+course;
-  также запрет удаления студента/курса, пока для него есть оценки.
-- **503 Service Unavailable**: типовые ошибки недоступности PostgreSQL.
-- Пороговые буквы — **наше соглашение**: A (90–100), B (80–89), C (70–79),
-  D (60–69), F (0–59); PDF не задаёт собственную шкалу.
-- `averageScore` — простое арифметическое среднее **score**, не GPA и не взвешенное по credits.
-- В `grades` нет SQL `FOREIGN KEY` на `student_db`/`course_db`: это три независимые БД.
-  Существование ссылок проверяет GradeService через два других репозитория.
-- Три локальных `JpaTransactionManager` **не означают одну общую атомарную транзакцию**.
-  Смена записей между базами и параллельные удаления могут создавать расхождения;
-  распределённые транзакции по заданию не требуются.
-- Структура данных намеренно использует `hibernate.hbm2ddl.auto=update` для лабораторной работы;
-  для production выбирают управляемые миграции и более строгие гарантии консистентности.
+Unit tests can be run with `mvn test`.
 
-## 9. Готовимся к защите
+## Implementation notes
 
-Откройте `docs/DEFENSE_RU.md`: там короткая речь, 12 вопросов и порядок демонстрации.
-Распределение ролей приведено как **предложение**, а не утверждение о сделанной работе.
+The three database connections use independent local transactions; the project does not implement distributed transactions. Logical references between databases are checked by the service layer. The `ddl-auto=update` schema strategy is intended for local laboratory development.
 
-## 10. Что сдавать на GitHub
+## Project structure
 
-Исходники `src/`, `pom.xml`, SQL скрипты `sql/`, `application.properties.example`,
-Postman collection `postman/`, README и настоящие скриншоты в `screenshots/`.
-Папку `target/` и файлы с реальными паролями **не коммитить**.
+```text
+src/main/java/kz/edu/universitymanagement/
+  config/       PostgreSQL configurations
+  student/      Student controller, service, entity and repository
+  course/       Course controller, service, entity and repository
+  grade/        Grade controller, service, entity and repository
+  transcript/   Transcript generation
+  dto/          Request and response models
+  exception/    API exception handling
+src/main/resources/
+  application.properties
+src/test/        Unit tests
+sql/             SQL setup and schemas
+postman/         API request collection
+screenshots/     Local verification screenshots
+```
