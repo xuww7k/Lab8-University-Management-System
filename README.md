@@ -6,7 +6,7 @@ A REST API for managing university students, courses, and grades. The applicatio
 
 ## Technology stack
 
-- Java 17+ and Spring Boot 3.5
+- Java 24 and Spring Boot 3.5
 - Spring Web, Spring Data JPA, Hibernate
 - PostgreSQL
 - Maven
@@ -40,7 +40,7 @@ Letter grades: A (90–100), B (80–89), C (70–79), D (60–69), F (0–59). 
 
 ## Local setup
 
-**Prerequisites:** JDK 17 or later, PostgreSQL, and Maven (or IntelliJ IDEA with Maven support).
+**Prerequisites:** JDK 24, PostgreSQL, and Maven (or IntelliJ IDEA with Maven support).
 
 1. Create the PostgreSQL databases `student_db`, `course_db`, and `grade_db`. See `sql/01-create-databases.sql`.
 2. Configure the connection credentials as environment variables. The default PostgreSQL user is `postgres` and the port is `5432`.
