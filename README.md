@@ -1,5 +1,7 @@
 # University Management System — Lab 8
 
+**Author:** Saduakas Bakdaulet (individual project)
+
 A REST API for managing university students, courses, and grades. The application is built with Java Spring Boot and stores data in three separate PostgreSQL databases.
 
 ## Technology stack
