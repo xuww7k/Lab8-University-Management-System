@@ -15,7 +15,7 @@
     <name>university-management</name>
     <description>Lab 8 — Spring Boot with three independent PostgreSQL databases</description>
     <properties>
-        <java.version>17</java.version>
+        <java.version>24</java.version>
     </properties>
     <dependencies>
         <dependency>
